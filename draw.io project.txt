@@ -683,3 +683,314 @@ This line declares the removeNode function, which is responsible for removing a 
 updateNodeConnections();
 - This line calls the updateNodeConnections function without passing any node to update all the connections initially.
 These explanations should help you understand the purpose and functionality of each line in the JavaScript code.
+
+
+
+
+
+
+
+
+example code 3: 
+
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Drag and Drop with Node Connections</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
+   integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+  <style>
+    /* CSS styles */
+
+    #sidebar {
+      width: 200px;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      background-color: #f1f1f1;
+      padding: 10px;
+    }
+
+    #canvas {
+      width: calc(100% - 200px);
+      height: 100%;
+      background-color: #f1f1f1;
+      position: absolute;
+      top: 0;
+      right: 0;
+    }
+    #svg-container{
+      width: calc(100% - 220px);
+      height: 100%;
+     
+    }
+
+    .element {
+      width: 100%;
+      height: 30px;
+      background-color: #ccc;
+      border: 1px solid #999;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      user-select: none;
+      font-size: 14px;
+    }
+
+    .node {
+      width: 100px;
+      height: 100px;
+      background-color: #ccc;
+      border: 1px solid #999;
+      position: absolute;
+      cursor: move;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      font-size: 14px;
+    }
+
+    .node textarea {
+      width: 80%;
+      height: 60px;
+      resize: none;
+      border: none;
+      background-color: transparent;
+      text-align: center;
+    }
+
+    .connector {
+      width: 10px;
+      height: 10px;
+      background-color: #999;
+      border-radius: 50%;
+      position: absolute;
+      cursor: pointer;
+    }
+
+    .connector.input {
+      left: -5px;
+      top: 45px;
+    }
+
+    .connector.output {
+      right: -5px;
+      top: 45px;
+    }
+
+    .connector.active {
+      background-color: red;
+    }
+
+    .link {
+      stroke: black;
+      stroke-width: 2px;
+    }
+
+    .close-button {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <div class="card shadow-lg" id="sidebar">
+    <div class="element" draggable="true" data-shape="rectangle">Rectangle</div>
+    <div class="element" draggable="true" data-shape="circle">Circle</div>
+    <div class="element" draggable="true" data-shape="diamond">Diamond</div>
+  </div>
+  <div class="card shadow-lg m-1" id="canvas">
+    <svg  id="svg-container"></svg>
+  </div>
+
+  <script>// JavaScript code
+    var sidebar = document.getElementById("sidebar");
+    var canvas = document.getElementById("canvas");
+    var nodes = [];
+    var activeNode = null;
+    var initialNodeX = 0;
+    var initialNodeY = 0;
+    var initialMouseX = 0;
+    var initialMouseY = 0;
+    var scaleFactor = 1;
+    var connectors = [];
+    var svgContainer = document.getElementById("svg-container");
+    
+    sidebar.addEventListener("dragstart", function(event) {
+      event.dataTransfer.setData("text/plain", event.target.dataset.shape);
+    });
+    
+    canvas.addEventListener("dragover", function(event) {
+      event.preventDefault();
+    });
+    
+    canvas.addEventListener("drop", function(event) {
+      event.preventDefault();
+      var shape = event.dataTransfer.getData("text/plain");
+      var x = event.clientX - canvas.getBoundingClientRect().left;
+      var y = event.clientY - canvas.getBoundingClientRect().top;
+      createNode(x, y, shape);
+    });
+    
+    function createNode(x, y, shape) {
+      var node = document.createElement("div");
+      node.className = "node";
+      node.style.left = x + "px";
+      node.style.top = y + "px";
+      node.draggable = false;
+    
+      if (shape === "rectangle") {
+        node.style.borderRadius = "0";
+      } else if (shape === "circle") {
+        node.style.borderRadius = "50%";
+      } else if (shape === "diamond") {
+        node.style.transform = "rotate(45deg)";
+      }
+    
+      var closeButton = document.createElement("button");
+      closeButton.className = "close-button";
+      closeButton.textContent = "x";
+      node.appendChild(closeButton);
+    
+      var textarea = document.createElement("textarea");
+      textarea.textContent = "Element " + (nodes.length + 1);
+      textarea.readOnly = true;
+      node.appendChild(textarea);
+    
+      var inputConnector = document.createElement("div");
+      inputConnector.className = "connector input";
+      node.appendChild(inputConnector);
+    
+      var outputConnector = document.createElement("div");
+      outputConnector.className = "connector output";
+      node.appendChild(outputConnector);
+    
+      node.addEventListener("dragstart", function(event) {
+        event.stopPropagation();
+        activeNode = this;
+      });
+    
+      node.addEventListener("dragend", function(event) {
+        event.stopPropagation();
+        activeNode = null;
+      });
+    
+      node.addEventListener("mousedown", function(event) {
+        event.stopPropagation();
+        if (event.target === this) {
+          activeNode = this;
+          initialMouseX = event.clientX;
+          initialMouseY = event.clientY;
+          initialNodeX = parseInt(this.style.left);
+          initialNodeY = parseInt(this.style.top);
+        }
+      });
+    
+      node.addEventListener("mousemove", function(event) {
+        event.stopPropagation();
+        if (activeNode === this) {
+          var deltaX = event.clientX - initialMouseX;
+          var deltaY = event.clientY - initialMouseY;
+          var newNodeX = initialNodeX + deltaX;
+          var newNodeY = initialNodeY + deltaY;
+          this.style.left = newNodeX + "px";
+          this.style.top = newNodeY + "px";
+          updateNodeConnections(this);
+        }
+      });
+    
+      node.addEventListener("mouseup", function(event) {
+        event.stopPropagation();
+      });
+    
+      node.addEventListener("wheel", function(event) {
+        event.stopPropagation();
+        var scaleDelta = event.deltaY > 0 ? -0.1 : 0.1;
+        scaleFactor += scaleDelta;
+        scaleFactor = Math.max(0.1, scaleFactor);
+        this.style.transform = "scale(" + scaleFactor + ")";
+        updateNodeConnections(this);
+      });
+    
+      node.addEventListener("dblclick", function(event) {
+        event.stopPropagation();
+        var textarea = this.querySelector("textarea");
+        textarea.removeAttribute("readonly");
+        textarea.focus();
+      });
+    
+      node.addEventListener("focusout", function(event) {
+        event.stopPropagation();
+        var textarea = this.querySelector("textarea");
+        textarea.setAttribute("readonly", true);
+      });
+    
+      closeButton.addEventListener("click", function(event) {
+        event.stopPropagation();
+        removeNode(node);
+      });
+    
+      canvas.appendChild(node);
+      nodes.push(node);
+      updateNodeConnections(node);
+    }
+    
+    function removeNode(node) {
+      var index = nodes.indexOf(node);
+      if (index !== -1) {
+        nodes.splice(index, 1);
+        canvas.removeChild(node);
+        updateNodeConnections();
+      }
+    }
+    
+    function updateNodeConnections(node) {
+  var outputConnector = node.querySelector(".connector.output");
+  var rectA = outputConnector.getBoundingClientRect();
+
+  connectors.forEach(function(connector) {
+    svgContainer.removeChild(connector);
+  });
+  connectors = [];
+
+  nodes.forEach(function(nodeB) {
+    if (node !== nodeB) {
+      var inputConnectorB = nodeB.querySelector(".connector.input");
+      var rectB = inputConnectorB.getBoundingClientRect();
+
+      var x1 = rectA.left - canvas.getBoundingClientRect().left + rectA.width / 2;
+      var y1 = rectA.top - canvas.getBoundingClientRect().top + rectA.height / 2;
+      var x2 = rectB.left - canvas.getBoundingClientRect().left + rectB.width / 2;
+      var y2 = rectB.top - canvas.getBoundingClientRect().top + rectB.height / 2;
+
+      var connector = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      connector.setAttribute("class", "link");
+      connector.setAttribute("x1", x1);
+      connector.setAttribute("y1", y1);
+      connector.setAttribute("x2", x2);
+      connector.setAttribute("y2", y2);
+
+      connectors.push(connector);
+      svgContainer.appendChild(connector);
+    }
+  });
+}
+
+  </script>
+</body>
+</html>
+
