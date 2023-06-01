@@ -1314,3 +1314,271 @@ code example -4
 </html>
 
 
+
+example 5 some changes not that much good just reference
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Node Canvas</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+    }
+
+    #sidebar {
+      width: 200px;
+      height: 100vh;
+      background-color: #f0f0f0;
+      padding: 10px;
+      box-sizing: border-box;
+      float: left;
+    }
+
+    #canvas {
+      position: relative;
+      margin-left: 200px;
+      height: 100vh;
+      background-color: #ffffff;
+    }
+
+    .node {
+      position: absolute;
+      background-color: #dddddd;
+      padding: 10px;
+      box-sizing: border-box;
+      border: 2px solid #bbbbbb;
+      border-radius: 5px;
+      cursor: move;
+    }
+
+    .node textarea {
+      width: 100%;
+      height: 100%;
+      resize: none;
+      border: none;
+      outline: none;
+      font-size: 14px;
+    }
+
+    .node .close-button {
+      position: absolute;
+      top: -10px;
+      right: -10px;
+      width: 20px;
+      height: 20px;
+      background-color: #ff0000;
+      color: #ffffff;
+      border: none;
+      border-radius: 50%;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .node .connector {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background-color: #000000;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    .node .connector.input {
+      top: 50%;
+      left: -5px;
+      transform: translate(-50%, -50%);
+    }
+
+    .node .connector.output {
+      top: 50%;
+      right: -5px;
+      transform: translate(50%, -50%);
+    }
+
+    #svg-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .link {
+      stroke: #000000;
+      stroke-width: 2px;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="sidebar">
+    <div class="shape" draggable="true" data-shape="rectangle">Rectangle</div>
+    <div class="shape" draggable="true" data-shape="circle">Circle</div>
+    <div class="shape" draggable="true" data-shape="diamond">Diamond</div>
+  </div>
+
+  <div id="canvas"></div>
+
+  <script>
+    var sidebar = document.getElementById("sidebar");
+    var canvas = document.getElementById("canvas");
+    var nodes = [];
+    var activeNode = null;
+    var initialNodeX = 0;
+    var initialNodeY = 0;
+    var initialMouseX = 0;
+    var initialMouseY = 0;
+    var scaleFactor = 1;
+    var connectors = [];
+    var svgContainer = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    canvas.appendChild(svgContainer);
+
+    sidebar.addEventListener("dragstart", function(event) {
+      event.dataTransfer.setData("text/plain", event.target.dataset.shape);
+    });
+
+    canvas.addEventListener("dragover", function(event) {
+      event.preventDefault();
+    });
+
+    canvas.addEventListener("drop", function(event) {
+      event.preventDefault();
+      var shape = event.dataTransfer.getData("text/plain");
+      var offsetX = event.clientX - canvas.getBoundingClientRect().left;
+      var offsetY = event.clientY - canvas.getBoundingClientRect().top;
+      createNode(offsetX, offsetY, shape);
+    });
+
+    canvas.addEventListener("mousedown", function(event) {
+      if (event.target.classList.contains("node")) {
+        activeNode = event.target;
+        initialNodeX = parseInt(activeNode.style.left);
+        initialNodeY = parseInt(activeNode.style.top);
+        initialMouseX = event.clientX;
+        initialMouseY = event.clientY;
+
+        canvas.addEventListener("mousemove", moveNode);
+        canvas.addEventListener("mouseup", releaseNode);
+      }
+    });
+
+    function moveNode(event) {
+      var deltaX = event.clientX - initialMouseX;
+      var deltaY = event.clientY - initialMouseY;
+      var newX = initialNodeX + deltaX;
+      var newY = initialNodeY + deltaY;
+
+      activeNode.style.left = newX + "px";
+      activeNode.style.top = newY + "px";
+      updateNodeConnections(activeNode);
+    }
+
+    function releaseNode(event) {
+      canvas.removeEventListener("mousemove", moveNode);
+      canvas.removeEventListener("mouseup", releaseNode);
+    }
+
+    function createNode(x, y, shape) {
+      var node = document.createElement("div");
+      node.className = "node";
+      node.style.left = x + "px";
+      node.style.top = y + "px";
+
+      if (shape === "circle") {
+        node.style.borderRadius = "50%";
+      } else if (shape === "diamond") {
+        node.style.transform = "rotate(45deg)";
+      }
+
+      var closeButton = document.createElement("button");
+      closeButton.className = "close-button";
+      closeButton.innerHTML = "&times;";
+
+      var textarea = document.createElement("textarea");
+
+      var inputConnector = document.createElement("div");
+      inputConnector.className = "connector input";
+
+      var outputConnector = document.createElement("div");
+      outputConnector.className = "connector output";
+
+      node.appendChild(closeButton);
+      node.appendChild(textarea);
+      node.appendChild(inputConnector);
+      node.appendChild(outputConnector);
+
+      closeButton.addEventListener("click", function(event) {
+        event.stopPropagation();
+        removeNode(node);
+      });
+
+      canvas.appendChild(node);
+      nodes.push(node);
+    }
+
+    function removeNode(node) {
+      var index = nodes.indexOf(node);
+      if (index !== -1) {
+        nodes.splice(index, 1);
+        canvas.removeChild(node);
+        removeNodeConnections(node);
+      }
+    }
+
+    function updateNodeConnections(node) {
+      var inputConnector = node.querySelector(".connector.input");
+      var outputConnector = node.querySelector(".connector.output");
+
+      var inputX = parseInt(inputConnector.style.left) + parseInt(node.style.left) + 5;
+      var inputY = parseInt(inputConnector.style.top) + parseInt(node.style.top) + 5;
+      var outputX = parseInt(outputConnector.style.left) + parseInt(node.style.left) + 5;
+      var outputY = parseInt(outputConnector.style.top) + parseInt(node.style.top) + 5;
+
+      updateConnectors(node, inputX, inputY, outputX, outputY);
+    }
+
+    function removeNodeConnections(node) {
+      var inputConnector = node.querySelector(".connector.input");
+      var outputConnector = node.querySelector(".connector.output");
+
+      for (var i = connectors.length - 1; i >= 0; i--) {
+        var connector = connectors[i];
+        if (connector.start === inputConnector || connector.end === outputConnector) {
+          svgContainer.removeChild(connector.line);
+          connectors.splice(i, 1);
+        }
+      }
+    }
+
+    function updateConnectors(node, inputX, inputY, outputX, outputY) {
+      for (var i = connectors.length - 1; i >= 0; i--) {
+        var connector = connectors[i];
+        if (connector.start === inputConnector || connector.end === outputConnector) {
+          svgContainer.removeChild(connector.line);
+          connectors.splice(i, 1);
+        }
+      }
+
+      var line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("class", "link");
+      line.setAttribute("x1", inputX);
+      line.setAttribute("y1", inputY);
+      line.setAttribute("x2", outputX);
+      line.setAttribute("y2", outputY);
+      svgContainer.appendChild(line);
+
+      connectors.push({
+        start: inputConnector,
+        end: outputConnector,
+        line: line
+      });
+    }
+  </script>
+</body>
+</html>
+
+
+
